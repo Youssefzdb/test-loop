@@ -1,38 +1,59 @@
-import os
+import asyncio
+import argparse
 import sys
-import requests
-from bs4 import BeautifulSoup
+from core.engine import AsyncOSINTEngine
+from modules.social import SocialScanner
+from modules.dns_recon import DNSRecover
 
-def banner():
-    print("=" * 50)
-    print("        Advanced OSINT Tool v1.0")
-    print("=" * 50)
+def print_banner():
+    banner = """
+    ==================================================
+    * ADVANCED OSINT FRAMEWORK            *
+    * Automated Recon & Intelligence       *
+    ==================================================
+    """
+    print(banner)
 
-def check_username(username):
-    print(f'\n[*] Searching for username: {username}')
-    # Example placeholder for social media audit
-    urls = {
-        'GitHub': f'https://github.com/{username}',
-        'Twitter': f'https://twitter.com/{username}'
-    }
-    for platform, url in urls.items():
-        try:
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                print(f'[+] Found on {platform}: {url}')
-            else:
-                print(f'[-] Not found on {platform}')
-        except Exception as e:
-            print(f'[!] Error checking {platform}')
+async def main_async(args):
+    engine = AsyncOSINTEngine()
+    
+    if args.username:
+        print(f"[*] Starting social media enumeration for username: {args.username}\n")
+        scanner = SocialScanner(engine)
+        results = await scanner.scan_username(args.username)
+        print("\n[+] Scan Results:")
+        for platform, status in results.items():
+            print(f"  [-] {platform}: {status}")
+            
+    if args.domain:
+        print(f"\n[*] Starting DNS reconnaissance for domain: {args.domain}\n")
+        dns_recon = DNSRecover()
+        dns_results = dns_recon.scan_domain(args.domain)
+        print("\n[+] DNS Records Found:")
+        for record_type, records in dns_results.items():
+            print(f"  [-] {record_type}: {', '.join(records) if records else 'None'}")
 
 def main():
-    banner()
-    if len(sys.argv) < 2:
-        print('Usage: python osint_tool.py <target_username>')
-        sys.exit(1)
+    print_banner()
+    parser = argparse.ArgumentParser(description="Advanced OSINT Command Line Tool")
+    parser.add_argument("-u", "--username", help="Username to search across social networks", required=False)
+    parser.add_argument("-d", "--domain", help="Domain name to perform DNS reconnaissance", required=False)
     
-    target = sys.argv[1]
-    check_username(target)
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+        
+    args = parser.parse_args()
+    
+    if not args.username and not args.domain:
+        print("[-] Error: Please specify either a username (-u) or a domain (-d).")
+        sys.exit(1)
+        
+    asyncio.run(main_async(args))
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n[-] Operation cancelled by user.")
+        sys.exit(0)
